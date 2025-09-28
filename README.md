@@ -108,6 +108,124 @@ Consumer<ChestViewModel>(
 )
 ```
 
+### **Implementación Detallada de Provider en la Aplicación**
+
+#### **1. Configuración Global (main.dart)**
+```dart
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ChestViewModel()),
+      ],
+      child: MaterialApp(
+        home: HomeScreen(),
+      ),
+    );
+  }
+}
+```
+- **MultiProvider**: Permite registrar múltiples providers
+- **ChangeNotifierProvider**: Específico para clases que extienden ChangeNotifier
+- **Scope Global**: El ChestViewModel está disponible en toda la aplicación
+
+#### **2. Uso en HomeScreen - Consumer para Reactividad**
+```dart
+// En home_screen.dart - Escucha cambios de estado para mostrar diálogos
+Consumer<ChestViewModel>(
+  builder: (context, viewModel, child) {
+    if (viewModel.lastOpenedItem != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showLootReveal(context, viewModel.lastOpenedItem!);
+        viewModel.resetLastOpenedItem();
+      });
+    }
+    return ChestGrid();
+  },
+)
+```
+**Propósito**: Detecta automáticamente cuando se obtiene un nuevo item y muestra el diálogo
+
+#### **3. Uso en ChestCard - Consumer para Estados de UI**
+```dart
+// En chest_card.dart - Controla la apariencia del cofre
+Consumer<ChestViewModel>(
+  builder: (context, viewModel, child) {
+    return GestureDetector(
+      onTap: !viewModel.isOpening ? _openChest : null, // Deshabilita si está abriendo
+      child: Container(
+        decoration: BoxDecoration(
+          colors: canAfford ? [Colors.amber[300]!, Colors.amber[600]!] 
+                          : [Colors.grey[400]!, Colors.grey[600]!],
+        ),
+        child: viewModel.isOpening ? CircularProgressIndicator() : ChestContent(),
+      ),
+    );
+  },
+)
+```
+**Propósito**: Actualiza la apariencia del cofre según el estado de apertura
+
+#### **4. Uso Directo - Provider.of para Acciones**
+```dart
+// En chest_card.dart - Ejecuta acciones sin reconstruir UI
+void _openChest() async {
+  final viewModel = Provider.of<ChestViewModel>(context, listen: false);
+  await viewModel.openChest(widget.chest);
+}
+```
+**Propósito**: Accede al ViewModel para ejecutar métodos sin reconstruir el widget
+- **listen: false**: Evita reconstrucciones innecesarias
+
+#### **5. Flujo Completo de Provider en la Aplicación**
+
+**Paso 1 - Usuario toca cofre:**
+```dart
+onTap: () => _openChest() // En ChestCard
+```
+
+**Paso 2 - Acción ejecutada:**
+```dart
+final viewModel = Provider.of<ChestViewModel>(context, listen: false);
+await viewModel.openChest(widget.chest); // En ChestCard
+```
+
+**Paso 3 - Estado actualizado:**
+```dart
+// En ChestViewModel
+_isOpening = true;
+notifyListeners(); // Notifica a todos los widgets
+```
+
+**Paso 4 - UI reacciona automáticamente:**
+```dart
+// Todos los Consumer<ChestViewModel> se reconstruyen
+Consumer<ChestViewModel>(
+  builder: (context, viewModel, child) {
+    // viewModel.isOpening ahora es true
+    return viewModel.isOpening ? LoadingWidget() : ChestWidget();
+  },
+)
+```
+
+#### **6. Casos de Uso Específicos de Provider**
+
+**A. Control de Estados de Carga:**
+- **Problema**: Evitar que se abran múltiples cofres simultáneamente
+- **Solución**: `_isOpening` en ViewModel controla el estado global
+- **Implementación**: Consumer widgets verifican `viewModel.isOpening`
+
+**B. Comunicación Entre Widgets:**
+- **Problema**: ChestCard necesita notificar a HomeScreen cuando se obtiene un item
+- **Solución**: `_lastOpenedItem` en ViewModel actúa como canal de comunicación
+- **Implementación**: HomeScreen escucha cambios en `lastOpenedItem`
+
+**C. Actualización de UI Distribuida:**
+- **Problema**: Múltiples widgets necesitan reflejar el mismo estado
+- **Solución**: Un solo ViewModel sirve a todos los widgets
+- **Implementación**: Consumer widgets distribuidos en diferentes partes de la UI
+
 #### **Reactividad Automática**
 - Los widgets se reconstruyen automáticamente cuando el estado cambia
 - Optimización automática: solo se reconstruyen los widgets necesarios
@@ -216,15 +334,6 @@ Este proyecto demostró la importancia de:
 - **Priorizar la experiencia de usuario** con animaciones y efectos visuales
 
 La implementación de Provider resultó ser una excelente elección, proporcionando una base sólida para futuras expansiones de la aplicación.
-
----
-
-## 6. Referencias y Recursos
-
-- [Flutter Documentation](https://docs.flutter.dev/)
-- [Provider Package Documentation](https://pub.dev/packages/provider)
-- [MVVM Pattern in Flutter](https://flutter.dev/docs/development/data-and-backend/state-mgmt/options#provider)
-- [Flutter Animation Guide](https://docs.flutter.dev/development/ui/animations)
 
 ---
 
